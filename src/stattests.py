@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import itertools
 
@@ -144,7 +144,7 @@ def t_test_benf(
     size: Union[int, list, np.ndarray, pd.Series],
     means: Union[list, np.ndarray, pd.Series],
     stds: Union[list, np.ndarray, pd.Series],
-    names: Optional[list[str]] = None,
+    names: Optional[List[str]] = None,
     ctrl_group: Optional[None] = None,  # индекс контрольной группы
     silent: bool = True,
 ) -> None:
@@ -239,7 +239,7 @@ def t_test_nk(
     size: Union[int, list, np.ndarray, pd.Series],
     means: Union[list, np.ndarray, pd.Series],
     stds: Union[list, np.ndarray, pd.Series],
-    names: Optional[list[str]] = None,
+    names: Optional[List[str]] = None,
     tukey: bool = False,  # Критерий Тьюки
     silent: bool = True,
 ) -> None:
