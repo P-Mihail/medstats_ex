@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 import pandas as pd
 import scipy.stats
-
+from statsmodels.stats.libqsturng import psturng
 
 # ДВЕ ГРУППЫ
 
@@ -136,8 +136,8 @@ def f_test(
         )
 
 
-# Критерий Стьюдента для множественных сравнений
-# А) поправки Бонферрони
+# А) Критерий Стьюдента для множественных сравнений
+# поправки Бонферрони
 
 
 def t_test_benf(
@@ -157,9 +157,9 @@ def t_test_benf(
     иначе:
         Производится сравнения каждой группы только с контрольной.
     """
-    
+
     assert len(means) == len(stds), "len(means) != len(stds)"
-    
+
     # size is int, np.array, pd.Series or list
     if type(size) == int:
         n = np.repeat(size, len(means))
@@ -227,5 +227,101 @@ def t_test_benf(
                 else:
                     print(
                         f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f} (p-value = {p[i]:.3f})"
+                    )
+
+
+# Б) Критерий Стьюдента для множественных сравнений
+# Критерий Ньюмена-Кейлса + Критерий Тьюки
+# для большого числа сравнений, когда поправки Бонферрони делает критерий Стьюдента излишне жестким
+
+
+def t_test_nk(
+    size: Union[int, list, np.ndarray, pd.Series],
+    means: Union[list, np.ndarray, pd.Series],
+    stds: Union[list, np.ndarray, pd.Series],
+    names: Optional[list[str]] = None,
+    tukey: bool = False,  # Критерий Тьюки
+    silent: bool = True,
+) -> None:
+    """
+    Критерий Стьюдента для множественных сравнений с применением критериев Ньюмена-Кейлса или Тьюки для компенсации эффекта множественных сравнений.
+    Предполагается что предварительно уже была отвергнута нулевая гипотеза о равенстве всех средних (f_test).
+
+    * Критерий Ньюмена-Кейлса был разработан как усовершенствование критерия Тьюки.
+    """
+
+    assert len(means) == len(stds), "len(means) != len(stds)"
+
+    # size is int, np.array, pd.Series or list
+    if type(size) == int:
+        n = np.repeat(size, len(means))
+    else:
+        n = np.array(size)
+    assert len(means) == len(n), "len(means) != len(n)"
+
+    assert not names or len(names) == len(n), "names not None and len(names) != len(n)"
+
+    # Внутригрупповая оценка дисперсии
+    Sw = np.average(np.power(stds, 2), weights=n)
+    # Число степеней свободы
+    v = sum(n) - len(n)
+
+    # t05 = {l: qsturng(1-.05, l, v) for l in range(2, len(means) + 1)}
+    # t01 = {l: qsturng(1-.01, l, v) for l in range(2, len(means) + 1)}
+
+    if not silent:
+        print(f"Внутригрупповая оценка дисперсии: {Sw:.3f}")
+        print(f"Число степеней свободы: {v}")
+
+    means_rank = np.argsort(means)  # индексы упорядочивающие средние значения
+    idxs = np.array(
+        [
+            [means_rank[i], means_rank[j]]
+            for i in range(len(means) - 1, -1, -1)
+            for j in range(i)
+        ]
+    ).T
+
+    if tukey:
+        l = [len(means)] * len(means)  # КРИТЕРИИ ТЬЮКИ
+        # (можно l задать просто скаляром len(means), но тогда надо бороться с pylance)
+    else:
+        l = [
+            i - j + 1 for i in range(len(means) - 1, -1, -1) for j in range(i)
+        ]  # КРИТЕРИЙ НЬЮМЕНА-КЕЙЛСА
+
+    t = (np.take(list(means), idxs[0]) - np.take(list(means), idxs[1])) / np.sqrt(  # type: ignore
+        Sw * (1.0 / np.take(n, idxs[0]) + 1.0 / np.take(n, idxs[1])) / 2.0  # type: ignore
+    )
+    p: np.ndarray = psturng(np.abs(t), l, v)  # type: ignore
+
+    groups = [[], [], []]
+
+    for i in np.argsort(t):  # отображать в каждой группе по нарастанию стат значимости
+        if p[i] > 0.05:
+            groups[0].append(i)
+        elif p[i] > 0.01:
+            groups[1].append(i)
+        else:
+            groups[2].append(i)
+    labels = [
+        "Различия статистически не значимы:",
+        "Пограничный случай, есть основания задуматься над наличием различий:",
+        "Различия статистически значимы.",
+    ]
+
+    for label, group in zip(labels, groups):
+        print(f"\n{label}")
+        if len(group) == 0:
+            print("\t--------------------------------------------")
+        else:
+            for i in group:
+                if names is None:
+                    print(
+                        f"\tt('{idxs[0][i]}', '{idxs[1][i]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"
+                    )
+                else:
+                    print(
+                        f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"
                     )
 
