@@ -1,4 +1,7 @@
-from typing import Union
+from typing import Optional, Union
+
+import itertools
+
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -66,7 +69,9 @@ def t_test(
         )
 
 
-# НЕСКОЛЬКО ГРУПП, ПРОВЕРКА ГИПОТЕЗЫ, ЧТО ВСЕ СРЕДНИЕ РАВНЫ
+# НЕСКОЛЬКО ГРУПП
+
+# проверка гипотезы, что все средние равны
 
 
 def f_test(
@@ -129,4 +134,97 @@ def f_test(
         print(
             f"Пограничный случай, есть основания задуматься над наличием различий. 0.01 < P = {p:.3f} < 0.05 (F05 = {F05:.3f} < F = {F:.3f} < F01 = {F01:.3f})"
         )
+
+
+# Критерий Стьюдента для множественных сравнений
+# А) поправки Бонферрони
+
+
+def t_test_benf(
+    size: Union[int, list, np.ndarray, pd.Series],
+    means: Union[list, np.ndarray, pd.Series],
+    stds: Union[list, np.ndarray, pd.Series],
+    names: Optional[list[str]] = None,
+    ctrl_group: Optional[None] = None,  # индекс контрольной группы
+    silent: bool = True,
+) -> None:
+    """
+    Критерий Стьюдента для множественных сравнений с применением поправки Бонферрони для компенсации эффекта множественных сравнений.
+    Предполагается что предварительно уже была отвергнута нулевая гипотеза о равенстве всех средних (f_test).
+
+    Если не задан индекс контрольной группы:
+        Позволяет выделить группы отличные от остальных.
+    иначе:
+        Производится сравнения каждой группы только с контрольной.
+    """
+    assert len(means) == len(stds), "len(means) != len(stds)"
+    # size is int, np.array, pd.Series or list
+
+    if type(size) == int:
+        n = np.repeat(size, len(means))
+    else:
+        n = np.array(size)
+    assert len(means) == len(n), "len(means) != len(n)"
+
+    assert not names or len(names) == len(n), "names not None and len(names) != len(n)"
+
+    # Внутригрупповая оценка дисперсии
+    Sw = np.average(np.power(stds, 2), weights=n)
+    # Число степеней свободы
+    v = sum(n) - len(n)
+
+    if ctrl_group is None:
+        k = len(n)  # Число сравнений
+        idxs = np.array(
+            [[x[0], x[1]] for x in list(itertools.combinations(range(len(n)), 2))]
+        ).T
+    else:
+        k = len(n) - 1
+        idxs = np.array([[ctrl_group, i] for i in range(len(n)) if i != ctrl_group]).T
+
+    t01 = scipy.stats.t.ppf(q=1 - 0.01 / 2 / k, df=v)  # two-sided
+    t05 = scipy.stats.t.ppf(q=1 - 0.05 / 2 / k, df=v)
+
+    t = (np.take(list(means), idxs[1]) - np.take(list(means), idxs[0])) / np.sqrt(  # type: ignore
+        Sw * (1.0 / np.take(n, idxs[0]) + 1.0 / np.take(n, idxs[1]))  # type: ignore
+    )
+
+    if not silent:
+        print(f"Внутригрупповая оценка дисперсии: {Sw:.3f}")
+        print(f"Число степеней свободы: {v}")
+        print(
+            f"Критический значение для заданного числа степеней сввободы и уровней значимости 0.01 и 0.05 с учетом поправки Бонферрони: t01 = {t01:.3f}, t05 = {t05:.3f}\n"
+        )
+
+    p = 2 * (scipy.stats.t.cdf(-np.abs(t), v))
+
+    groups = [[], [], []]
+    for i in np.argsort(-p):
+        if p[i] > 0.05 / k:
+            groups[0].append(i)
+        elif p[i] > 0.01 / k:
+            groups[1].append(i)
+        else:
+            groups[2].append(i)
+
+    labels = [
+        "Различия статистически не значимы:",
+        "Пограничный случай, есть основания задуматься над наличием различий:",
+        "Различия статистически значимы.",
+    ]
+
+    for label, group in zip(labels, groups):
+        print(f"\n{label}")
+        if len(group) == 0:
+            print("\t--------------------------------------------")
+        else:
+            for i in group:
+                if names is None:
+                    print(
+                        f"\tt('{idxs[0][i]}', '{idxs[1][i]}') = {t[i]:.3f} (p-value = {p[i]:.3f})"
+                    )
+                else:
+                    print(
+                        f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f} (p-value = {p[i]:.3f})"
+                    )
 
