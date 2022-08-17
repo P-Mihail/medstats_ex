@@ -157,9 +157,10 @@ def t_test_benf(
     иначе:
         Производится сравнения каждой группы только с контрольной.
     """
+    
     assert len(means) == len(stds), "len(means) != len(stds)"
+    
     # size is int, np.array, pd.Series or list
-
     if type(size) == int:
         n = np.repeat(size, len(means))
     else:
