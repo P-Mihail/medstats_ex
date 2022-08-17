@@ -1,9 +1,12 @@
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import itertools
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from scipy import interpolate
 import scipy.stats
 from statsmodels.stats.libqsturng import psturng
 
@@ -323,5 +326,116 @@ def t_test_nk(
                 else:
                     print(
                         f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"
+                    )
+
+
+# В) Критерий Стьюдента для множественных сравнений
+# Критерий Даннета
+# *это вариант критерия Ньюмена–Кейлса для сравнения нескольких групп с одной контрольной
+
+
+def _make_dunnetts_q_value(
+    file: Union[str, Path]
+) -> Callable[[int, float, int], float]:
+    """
+    Создает функцию, для получения критических значений для теста Даннета на основе таблицы из file, интерполируя промежуточные значения.
+    """
+    df = pd.read_csv(file, index_col=[1, 0, 2]).unstack(-1).droplevel(0, axis=1)  # type: ignore
+    mem = {}
+    for alpha in df.index.unique(0):
+        df_ = df.loc[alpha]
+        mem[alpha] = interpolate.interp2d(
+            df_.columns, np.where(df_.index == np.inf, 1e12, df_.index), df_
+        )
+
+    def nested(v: int, alpha: float, l: int) -> float:
+        assert alpha in mem, f"alpha should be in {mem.keys()}"
+        assert 2 <= v, f"v should be >= 2"
+        assert int(v) == v, f"v should be int"
+        assert 3 <= l <= 21, f"l should be >= 3"
+        assert int(l) == l, f"l should be int"
+
+        return mem[alpha](l, v)[0]
+
+    return nested
+
+
+dunnetts_q_value = _make_dunnetts_q_value(
+    Path(__file__).parent.resolve() / "Dunnetts_Table.csv"
+)
+
+
+def dunnetts_test(
+    size: Union[int, list, np.ndarray, pd.Series],
+    means: Union[list, np.ndarray, pd.Series],
+    stds: Union[list, np.ndarray, pd.Series],
+    names: Optional[List[str]] = None,
+    ctrl_group: int = 0,  # индекс контрольной группы
+    silent: bool = True,
+) -> None:
+    """
+    Критерий Стьюдента для множественных сравнений с контрольной группой с применением критерия Даннета для компенсации эффекта множественных сравнений.
+    Предполагается что предварительно уже была отвергнута нулевая гипотеза о равенстве всех средних (f_test).
+
+    * Критерий Даннета это вариант критерия Ньюмена–Кейлса для сравнения нескольких групп с одной контрольной.
+    """
+    assert len(means) == len(stds), "len(means) != len(stds)"
+
+    # n is int, np.array, pd.Series or list
+    if type(size) == int:
+        n = np.repeat(size, len(means))
+    else:
+        n = np.array(size)
+    assert len(means) == len(n), "len(means) != len(n)"
+
+    assert not names or len(names) == len(n), "names not None and len(names) != len(n)"
+
+    # Внутригрупповая оценка дисперсии
+    Sw = np.average(np.power(stds, 2), weights=n)
+    # Число степеней свободы
+    v = sum(n) - len(n)
+
+    if not silent:
+        print(f"Внутригрупповая оценка дисперсии: {Sw:.3f}")
+        print(f"Число степеней свободы: {v}")
+
+    means_rank = np.argsort(means)  # индексы упорядочивающие средние значения
+    idxs = np.array([[ctrl_group, i] for i in range(len(n)) if i != ctrl_group]).T
+
+    l = len(means)
+
+    q = (np.take(list(means), idxs[0]) - np.take(list(means), idxs[1])) / np.sqrt(  # type: ignore
+        Sw * (1.0 / np.take(n, idxs[0]) + 1.0 / np.take(n, idxs[1]))  # type: ignore
+    )
+
+    groups = [[], [], []]
+
+    q05 = dunnetts_q_value(sum(n), 0.05, l)
+    q01 = dunnetts_q_value(sum(n), 0.01, l)
+
+    for i in np.argsort(q):  # отображать в каждой группе по нарастанию стат значимости
+        if abs(q[i]) < q05:
+            groups[0].append(i)
+        elif abs(q[i]) < q01:
+            groups[1].append(i)
+        else:
+            groups[2].append(i)
+    labels = [
+        f"Различия статистически не значимы, |q| < q05 = {q05:.3f}:",
+        f"Пограничный случай, есть основания задуматься над наличием различий, q01 = {q01:.3f} < |q| < q05 = {q05:.3f}:",
+        f"Различия статистически значимы, q01 = {q01:.3f} < |q|:",
+    ]
+
+    for label, group in zip(labels, groups):
+        print(f"\n{label}")
+        if len(group) == 0:
+            print("\t--------------------------------------------")
+        else:
+            for i in group:
+                if names is None:
+                    print(f"\tq('{idxs[0][i]}', '{idxs[1][i]}') = {q[i]:.3f}")
+                else:
+                    print(
+                        f"\tq('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {q[i]:.3f}"
                     )
 
