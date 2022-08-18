@@ -148,8 +148,8 @@ def t_test_benf(
     size: Union[int, list, np.ndarray, pd.Series],
     means: Union[list, np.ndarray, pd.Series],
     stds: Union[list, np.ndarray, pd.Series],
-    names: Optional[List[str]] = None,
-    ctrl_group: Optional[None] = None,  # индекс контрольной группы
+    names: Union[None, List[str], pd.Index] = None,
+    ctrl_group: Optional[int] = None,  # индекс контрольной группы
     silent: bool = True,
 ) -> None:
     """
@@ -244,7 +244,7 @@ def t_test_nk(
     size: Union[int, list, np.ndarray, pd.Series],
     means: Union[list, np.ndarray, pd.Series],
     stds: Union[list, np.ndarray, pd.Series],
-    names: Optional[List[str]] = None,
+    names: Union[None, List[str], pd.Index] = None,
     tukey: bool = False,  # Критерий Тьюки
     silent: bool = True,
 ) -> None:
@@ -371,7 +371,7 @@ def dunnetts_test(
     size: Union[int, list, np.ndarray, pd.Series],
     means: Union[list, np.ndarray, pd.Series],
     stds: Union[list, np.ndarray, pd.Series],
-    names: Optional[List[str]] = None,
+    names: Union[None, List[str], pd.Index] = None,
     ctrl_group: int = 0,  # индекс контрольной группы
     silent: bool = True,
 ) -> None:
