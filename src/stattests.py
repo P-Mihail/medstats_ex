@@ -8,6 +8,7 @@ import pandas as pd
 
 from scipy import interpolate
 import scipy.stats
+import scipy.special
 from statsmodels.stats.libqsturng import psturng
 
 # ДВЕ ГРУППЫ
@@ -178,7 +179,7 @@ def t_test_benf(
     v = sum(n) - len(n)
 
     if ctrl_group is None:
-        k = len(n)  # Число сравнений
+        k = scipy.special.comb(len(n), 2, exact=True)  # Число сравнений
         idxs = np.array(
             [[x[0], x[1]] for x in list(itertools.combinations(range(len(n)), 2))]
         ).T
@@ -196,6 +197,7 @@ def t_test_benf(
     if not silent:
         print(f"Внутригрупповая оценка дисперсии: {Sw:.3f}")
         print(f"Число степеней свободы: {v}")
+        print(f"Число сравнений: {k}")
         print(
             f"Критический значение для заданного числа степеней сввободы и уровней значимости 0.01 и 0.05 с учетом поправки Бонферрони: t01 = {t01:.3f}, t05 = {t05:.3f}\n"
         )
