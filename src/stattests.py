@@ -288,7 +288,7 @@ def t_test_nk(
     ).T
 
     if tukey:
-        l = [len(means)] * len(means)  # КРИТЕРИИ ТЬЮКИ
+        l = len(means)  # КРИТЕРИИ ТЬЮКИ
         # (можно l задать просто скаляром len(means), но тогда надо бороться с pylance)
     else:
         l = [
