@@ -60,13 +60,9 @@ def t_test(
         )
 
     if abs(t) > t01:
-        print(
-            f"Различия статистически значимы. P = {p:.3f} < 0.01 (|t = {t:.3f}| > t01 = {t01:.3f})"
-        )
+        print(f"Различия статистически значимы. P = {p:.3f} < 0.01 (|t = {t:.3f}| > t01 = {t01:.3f})")
     elif abs(t) < t05:
-        print(
-            f"Различия статистически не значимы. P = {p:.3f} > 0.05 (|t = {t:.3f}| < t05 = {t05:.3f})"
-        )
+        print(f"Различия статистически не значимы. P = {p:.3f} > 0.05 (|t = {t:.3f}| < t05 = {t05:.3f})")
     else:
         print(
             f"Пограничный случай, есть основания задуматься над наличием различий. 0.01 > P = {p:.3f} > 0.05 (t05 = {t05:.3f} > |t = {t:.3f}| > t01 = {t01:.3f})"
@@ -127,13 +123,9 @@ def f_test(
         )
 
     if F > F01:
-        print(
-            f"Различия статистически значимы. P = {p:.3f} < 0.01 (F = {F:.3f} > F01 = {F01:.3f})"
-        )
+        print(f"Различия статистически значимы. P = {p:.3f} < 0.01 (F = {F:.3f} > F01 = {F01:.3f})")
     elif F < F05:
-        print(
-            f"Различия статистически не значимы. P = {p:.3f} > 0.05 (F = {F:.3f} < F05 = {F05:.3f})"
-        )
+        print(f"Различия статистически не значимы. P = {p:.3f} > 0.05 (F = {F:.3f} < F05 = {F05:.3f})")
     else:
         print(
             f"Пограничный случай, есть основания задуматься над наличием различий. 0.01 < P = {p:.3f} < 0.05 (F05 = {F05:.3f} < F = {F:.3f} < F01 = {F01:.3f})"
@@ -171,7 +163,7 @@ def t_test_benf(
         n = np.array(size)
     assert len(means) == len(n), "len(means) != len(n)"
 
-    assert not names or len(names) == len(n), "names not None and len(names) != len(n)"
+    assert names is None or len(names) == len(n), "names not None and len(names) != len(n)"
 
     # Внутригрупповая оценка дисперсии
     Sw = np.average(np.power(stds, 2), weights=n)
@@ -180,9 +172,7 @@ def t_test_benf(
 
     if ctrl_group is None:
         k = scipy.special.comb(len(n), 2, exact=True)  # Число сравнений
-        idxs = np.array(
-            [[x[0], x[1]] for x in list(itertools.combinations(range(len(n)), 2))]
-        ).T
+        idxs = np.array([[x[0], x[1]] for x in list(itertools.combinations(range(len(n)), 2))]).T
     else:
         k = len(n) - 1
         idxs = np.array([[ctrl_group, i] for i in range(len(n)) if i != ctrl_group]).T
@@ -226,13 +216,9 @@ def t_test_benf(
         else:
             for i in group:
                 if names is None:
-                    print(
-                        f"\tt('{idxs[0][i]}', '{idxs[1][i]}') = {t[i]:.3f} (p-value = {p[i]:.3f})"
-                    )
+                    print(f"\tt('{idxs[0][i]}', '{idxs[1][i]}') = {t[i]:.3f} (p-value = {p[i]:.3f})")
                 else:
-                    print(
-                        f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f} (p-value = {p[i]:.3f})"
-                    )
+                    print(f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f} (p-value = {p[i]:.3f})")
 
 
 # Б) Критерий Стьюдента для множественных сравнений
@@ -264,7 +250,7 @@ def t_test_nk(
         n = np.array(size)
     assert len(means) == len(n), "len(means) != len(n)"
 
-    assert not names or len(names) == len(n), "names not None and len(names) != len(n)"
+    assert names is None or len(names) == len(n), "names not None and len(names) != len(n)"
 
     # Внутригрупповая оценка дисперсии
     Sw = np.average(np.power(stds, 2), weights=n)
@@ -279,21 +265,13 @@ def t_test_nk(
         print(f"Число степеней свободы: {v}")
 
     means_rank = np.argsort(means)  # индексы упорядочивающие средние значения
-    idxs = np.array(
-        [
-            [means_rank[i], means_rank[j]]
-            for i in range(len(means) - 1, -1, -1)
-            for j in range(i)
-        ]
-    ).T
+    idxs = np.array([[means_rank[i], means_rank[j]] for i in range(len(means) - 1, -1, -1) for j in range(i)]).T
 
     if tukey:
         l = len(means)  # КРИТЕРИИ ТЬЮКИ
         # (можно l задать просто скаляром len(means), но тогда надо бороться с pylance)
     else:
-        l = [
-            i - j + 1 for i in range(len(means) - 1, -1, -1) for j in range(i)
-        ]  # КРИТЕРИЙ НЬЮМЕНА-КЕЙЛСА
+        l = [i - j + 1 for i in range(len(means) - 1, -1, -1) for j in range(i)]  # КРИТЕРИЙ НЬЮМЕНА-КЕЙЛСА
 
     t = (np.take(list(means), idxs[0]) - np.take(list(means), idxs[1])) / np.sqrt(  # type: ignore
         Sw * (1.0 / np.take(n, idxs[0]) + 1.0 / np.take(n, idxs[1])) / 2.0  # type: ignore
@@ -323,11 +301,11 @@ def t_test_nk(
             for i in group:
                 if names is None:
                     print(
-                        f"\tt('{idxs[0][i]}', '{idxs[1][i]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"
+                        f"\tt('{idxs[0][i]}', '{idxs[1][i]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"  # type: ignore
                     )
                 else:
                     print(
-                        f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"
+                        f"\tt('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {t[i]:.3f}, {'' if tukey else f'l = {l[i]},'} p-value = {p[i]:.3f}"  # type: ignore
                     )
 
 
@@ -336,9 +314,7 @@ def t_test_nk(
 # *это вариант критерия Ньюмена–Кейлса для сравнения нескольких групп с одной контрольной
 
 
-def _make_dunnetts_q_value(
-    file: Union[str, Path]
-) -> Callable[[int, float, int], float]:
+def _make_dunnetts_q_value(file: Union[str, Path]) -> Callable[[int, float, int], float]:
     """
     Создает функцию, для получения критических значений для теста Даннета на основе таблицы из file, интерполируя промежуточные значения.
     """
@@ -346,9 +322,7 @@ def _make_dunnetts_q_value(
     mem = {}
     for alpha in df.index.unique(0):
         df_ = df.loc[alpha]
-        mem[alpha] = interpolate.interp2d(
-            df_.columns, np.where(df_.index == np.inf, 1e12, df_.index), df_
-        )
+        mem[alpha] = interpolate.interp2d(df_.columns, np.where(df_.index == np.inf, 1e12, df_.index), df_)
 
     def nested(v: int, alpha: float, l: int) -> float:
         assert alpha in mem, f"alpha should be in {mem.keys()}"
@@ -362,9 +336,7 @@ def _make_dunnetts_q_value(
     return nested
 
 
-dunnetts_q_value = _make_dunnetts_q_value(
-    Path(__file__).parent.resolve() / "Dunnetts_Table.csv"
-)
+dunnetts_q_value = _make_dunnetts_q_value(Path(__file__).parent.resolve() / "Dunnetts_Table.csv")
 
 
 def dunnetts_test(
@@ -390,7 +362,7 @@ def dunnetts_test(
         n = np.array(size)
     assert len(means) == len(n), "len(means) != len(n)"
 
-    assert not names or len(names) == len(n), "names not None and len(names) != len(n)"
+    assert names is None or len(names) == len(n), "names not None and len(names) != len(n)"
 
     # Внутригрупповая оценка дисперсии
     Sw = np.average(np.power(stds, 2), weights=n)
@@ -437,7 +409,5 @@ def dunnetts_test(
                 if names is None:
                     print(f"\tq('{idxs[0][i]}', '{idxs[1][i]}') = {q[i]:.3f}")
                 else:
-                    print(
-                        f"\tq('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {q[i]:.3f}"
-                    )
+                    print(f"\tq('{names[idxs[0][i]]}', '{names[idxs[1][i]]}') = {q[i]:.3f}")
 
