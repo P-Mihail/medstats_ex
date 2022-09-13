@@ -34,20 +34,18 @@ def add_CI(df: pd.DataFrame, p: int, nms: List[Union[int, str]] = ["n", "mean", 
     nms - список названий столбцов содержащих число наблюдений, среднее значение и стандартное отклонение.
     Вместо имени столбца с числом наблюдений может быть передано число для случая когда такого столбца нет, а размер выборок одинаков для всех строк.
     """
-    del_col_n = False
+    df_ = df[nms[1:]].rename(columns={nms[1]: "mean", nms[2]: "std"})
 
     if type(nms[0]) == int:
-        df["n"] = nms[0]
-        nms[0] = "n"
-        del_col_n = True
+        df_["n"] = nms[0]
+    else:
+        df_["n"] = df[nms[0]]
 
     # Margin of error
-    df[f"MoE_{p}"] = t.ppf((1+p/100)/2, df=df[nms[0]]-1,
-                           scale=df[nms[2]]/df[nms[0]]**.5)
-    df[[f"{p}% LB", f"{p}% RB"]] = df.apply(lambda row: t.interval(p/100, row[nms[0]]-1, loc=row[nms[1]], scale=row[nms[2]] / row[nms[0]]**.5),
-                                            axis=1,
-                                            result_type='expand')
-    if del_col_n:
-        df.drop(columns=["n"], inplace=True)
+    df_[f"MoE_{p}"] = t.ppf((1+p/100)/2, df=df_["n"]-1,
+                            scale=df_["std"]/df_["n"]**.5)
+    df_[[f"{p}% LB", f"{p}% RB"]] = df_.apply(lambda row: t.interval(p/100, row["n"]-1, loc=row["mean"], scale=row["std"] / row["n"]**.5),
+                                              axis=1,
+                                              result_type='expand')
 
-    return df
+    return df.join(df_[[f"MoE_{p}", f"{p}% LB", f"{p}% RB"]])
